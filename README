@@ -1,0 +1,39 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=1754
+
+I make it as easy as possible and make a lot of action for you to accelerate 
+your inputing coding , accoding to the habit of a coder . So i make a lot of 
+expand 'key' word to append the content with hot key <c-cr> , and move to the
+different area just by <tab> . So ,try and  enjoy it ! I am sure you will love it!
+
+I add the function that let the ( can  complete the function prototype when you input 
+your coding  which make you not have to remeber the sequence of the function arguments.
+
+Add the menu item which let you can  control whether this plugin can start or stop.
+And of course you can let it start automatically by add this to your vimrc:
+let g:TTrCodeAssistor_AutoStart=1
+
+usage :
+<c-cr> to expand the 'key' word ( you can change it to you habit )
+<tab> to move forward and <s-tab> to move backward between the 'labels'
+(         key to compete the function prototype automantically.
+)         automatically move or input itself accoding to the content
+<bs>   use as normal but will remove the ) when its front char is (
+
+Recently ,  i will just add some useful function without map them to some key
+Just to expand the function of this plugin , so you can map it according to  your taste. :-)
+1. TTrcodeAssistor_ToggleComments
+                  nnoremap <F7> :call TTrCodeAssistor_ToggleComments()<CR>
+                  vnoremap <F7> :call TTrCodeAssistor_ToggleComments()<CR>
+
+
+Note : 
+       the function prototype completing must use the exuberant ctags to
+       make the tag files which you should add to vim by :set ctags+=/your/file
+       and You have to add the arguments  --fields=+S after all your arguments
+       while making the tag files with 'ctags'
+       ex : Make the tags for all the  files of current directory including the subdirectory
+             ctags -R --c-types=+p --fields=+S *
+
+'key' word table can be seen in the file.
+
+Just have a try.
