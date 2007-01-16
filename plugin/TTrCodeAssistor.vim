@@ -16,29 +16,41 @@
 "                 <s-tab>   or Shift+tab  --- move backward
 "                 <c-cr> or ctrl+enter    --- expand the 'key' word
 "
-"              2 . 'key' word table
+"              2 . <NEW> You can use the '(' in the insert mode to complete
+"                  the function prototype according to your tagfile. And the 
+"                  '(' is intelligentized , it will decide how it action by
+"                  itself.
+"                  Note:
+"                      You MUST use the Exuberant ctags and MUST execute the
+"                  command with arguments '--fields=+S' , if not , the '('
+"                  will not have his ability :-). Make sure !!!!
+"                      After that don't forget to tell the vim you tag files
+"                  by the command :set tags+=/your/tags/file
 "
-"       File type(&ft)    'key' word/help remeber    expand result
+"              3 . 'key' word table
+"
+"       File type(&ft)  'key'shortcut/full/help remember    expand result
 "     --------------------------------------------------------------------
-"        cpp/c/h          fo/[fo]r                    <for> statement
-"                         sw/[sw]itch                 <switch> statement
-"                         wh/[wh]ile                  <while> statement
-"                         ife/[if] with [e]lse        <if> statement (with else)
-"                         if                          <if> statement (no else)
-"                         df/[d]efine the [f]ile      #ifndef __FILENAME__ 
-"                                                     #define __FILENAME__
-"                                                     #endif /*__FILENAME__*/
-"                         c/[c]omments                  /* <cur> */
-"                         d/[d]efine                  #define ...
-"                         dn/[d]efine with [n]o       #ifndef ...
-"                                                     #define ... 
-"                                                     #endif  /* ... */
-"                         i/[i]clude                  #include \"<cur>\"
-"                         is/[i]clude [s]ystem file   #include  < <cur> >
-"        any file         it/[i]nsert [t]ime          insert the time (now!)
+"        cpp/c/h          fo/for/[fo]r                    <for> statement
+"                         sw/switch/[sw]itch              <switch> statement
+"                         wh/while/[wh]ile                <while> statement
+"                         ife/ife/[if] with [e]lse        <if> statement (with else)
+"                         if/if/if                        <if> statement (no else)
+"                         df/df/[d]efine the [f]ile       #ifndef __FILENAME__ 
+"                                                         #define __FILENAME__
+"                                                         #endif /*__FILENAME__*/
+"                         c/c/[c]omments                  /* <cur> */
+"                         d/d/[d]efine                    #define ...
+"                         dn/dn/[d]efine with [n]o        #ifndef ...
+"                                                         #define ... 
+"                                                         #endif  /* ... */
+"                         i/i/[i]clude                    #include \"<cur>\"
+"                         is/is/[i]clude [s]ystem file    #include  < <cur> >
+"                         main/main/[main] process        int main(...)...
+"        any file         it/it/[i]nsert [t]ime           insert the time (now!)
 "     --------------------------------------------------------------------
                 
-"              3 . All the 'key' word should be input under the <insert>
+"              4 . All the 'key' word should be input under the <insert>
 "                  mode with <c-cr> RIGHT AFTER it to expand.
 "                                                                    }}}1
 "
@@ -65,8 +77,15 @@
 "                   -- Add new 'key' word called 'nd' , see the table
 "                   -- All the key word is shortened to just TWO charactors
 "                   -- Change the key 'xt' to 'it' to make it easy to be remebered
-"                                                                    }}}1
+"               3.0 
+"                   -- Add the function which let the '(' key in the insert mode
+"                      to have the ability to complete the function prototype 
+"                      according to the tag files , make sure that , you make the 
+"                      tag files via the correct command and the correct arguments.
+"                      See usage!!
 "                   
+"                                                                    }}}1
+"
 "       Thanks:                                                      {{{1
 "               Thands to my best friend -Ming Bai- who gives many help 
 "               and good ideas.
@@ -97,6 +116,8 @@ let g:TTrCodeAssistor_En='|`'         " Please DON'T change it.
 let g:TTrCodeAssistor_UserInput = ""  " Remeber the user input string
 let g:TTrCodeAssistor_CursorPos = []  " Used to remeber the cursor's positon
 let g:TTrCodeAssistor_CallingMoveFirst = "\<c-r>=TTrCodeAssistor_MoveFirst()\<CR>"
+let g:TTrCodeAssistor_GotoBeginning = 0  " Used to decide whether the cursor should 
+                                         " goto the beginning before move
 
 " Define the type of action :
 "                1 . J   --- Jump ( default : just jump )
@@ -106,7 +127,7 @@ let g:TTrCodeAssistor_CallingMoveFirst = "\<c-r>=TTrCodeAssistor_MoveFirst()\<CR
 let g:TTrCodeAssistor_ActionType = "J"
 "let g:TTrCodeAssistor_RemeberUserInput = 0
 "let g:TTrCodeAssistor_NeedModify = 0  "if the use input need to modify 
-" ******************************}}}2
+" ******************************}}}2	
 
 "  *** maps  ***{{{2
 inoremap <silent> <c-cr>  <c-r>=TTrCodeAssistor_ExpandTemplates()<CR>
@@ -114,6 +135,7 @@ inoremap <silent> <tab>   <c-r>=TTrCodeAssistor_Action("")<CR>
 inoremap <silent> <s-tab>   <c-r>=TTrCodeAssistor_Action("b")<CR>
 snoremap <silent> <tab>   <left>a<c-r>=TTrCodeAssistor_Action("")<CR>
 snoremap <silent> <s-tab> <left>F`i<c-r>=TTrCodeAssistor_Action("b")<CR>
+inoremap <silent> ( <C-R>=TTrCodeAssistor_CompleteFuncPrototypeFromTags()<CR>
 "  *************}}}2
 
 " ***  Functions *** {{{2
@@ -152,6 +174,10 @@ endfunction "}}}3
 " Functions: TTrCodeAssistor_Action(direction)( return the string about how to action )
 "     Usage: MAIN process of the selection and relative actions
 function! TTrCodeAssistor_Action(direction) "{{{3
+	if g:TTrCodeAssistor_GotoBeginning == 1
+		call setpos('.',g:TTrCodeAssistor_CursorPos)
+		let g:TTrCodeAssistor_GotoBeginning = 0 
+	endif
 	call s:GetUserInputBeforeMove()
     call s:ActionBeforeGetArea()
 	let PositionContent = s:GetArea(a:direction)
@@ -261,6 +287,62 @@ function s:MarkAndReturn(content) "{{{3
 	return UserInputString
 endfunction "}}}3
 
+" Functions: TTrCodeAssistor_CompleteFuncFromTags() (return the string '' or '(' )
+"     Usage: using tag files to complete the funtion declaration
+function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
+	"Remeber the position
+	let g:TTrCodeAssistor_CursorPos = getpos('.')
+
+	" Check whether the ( need to call complete
+	let LBracketNum = strlen( substitute( getline('.') , '[^(]','','g' ) )
+	let RBracketNum = strlen( substitute( getline('.') , '[^)]','','g' ) )
+
+	if LBracketNum < RBracketNum
+		return '('
+	endif
+
+	" Get the function Name
+	let FuncName = substitute(getline('.')[:col('.')-2],'\m\zs.*\s\+\ze\w\+\s*$','','')
+	let FuncName = substitute(FuncName,'\m\s\+','','g')
+
+	if FuncName !~ '\m^\w\+$'
+		return "("
+	endif
+	
+	"Get the prototyoe from tags
+	let FuncInfo = []
+	let FuncInfo = taglist(FuncName)
+
+	if FuncInfo == [] "Can't find one
+		return "("
+	endif
+
+	"Get complete infomations
+	let CompleteInfo = []
+	for item in FuncInfo
+		if has_key(item,'name') && has_key(item,'kind') && has_key(item,'signature')
+			if item.kind == 'p' || item.kind == 'f'
+				let DealedSig = substitute( item.signature , '(', '( '.g:TTrCodeAssistor_St,'')
+				let DealedSig = substitute( DealedSig , ',' , g:TTrCodeAssistor_En.' , '.g:TTrCodeAssistor_St , 'g')
+				let DealedSig = substitute( DealedSig , 
+									\')' , g:TTrCodeAssistor_En.' )'.g:TTrCodeAssistor_St.'E'.g:TTrCodeAssistor_En,'')
+				call add( CompleteInfo , DealedSig )
+			endif
+		endif
+	endfor
+
+	if len( CompleteInfo ) == 0
+		return "("
+	elseif len( CompleteInfo ) == 1
+		return CompleteInfo[0].g:TTrCodeAssistor_CallingMoveFirst
+	endif
+
+	let g:TTrCodeAssistor_GotoBeginning = 1
+	call complete(col('.'),CompleteInfo)
+
+	return ""
+endfunction "}}}3
+
 " ****************** }}}2
 
 " *** TTrCodeAssistor libs *** {{{2
@@ -327,6 +409,9 @@ let g:TTrCodeAssistor_Libs{'dn'} = "#ifndef  ".
 								\g:TTrCodeAssistor_St."var_c".g:TTrCodeAssistor_En." */".
 								\g:TTrCodeAssistor_St."outside".g:TTrCodeAssistor_En.
 								\g:TTrCodeAssistor_CallingMoveFirst
+let g:TTrCodeAssistor_Libs{'main'} = "int main ( int argc , char ** argv )\<CR>{\<CR>".
+								\g:TTrCodeAssistor_St."content".g:TTrCodeAssistor_En.";\<CR>\<CR>return 0;\<CR>}".
+								\g:TTrCodeAssistor_CallingMoveFirst
 " *************************************** }}}2
 
 " *** ExpandTemplate Libs *** {{{2
@@ -339,11 +424,15 @@ let g:TTrCodeAssistor_Templates{'c'}{'i'} = g:TTrCodeAssistor_Libs{'i'}
 let g:TTrCodeAssistor_Templates{'c'}{'is'} = g:TTrCodeAssistor_Libs{'is'}
 let g:TTrCodeAssistor_Templates{'c'}{'df'} = g:TTrCodeAssistor_Libs{'df'}
 let g:TTrCodeAssistor_Templates{'c'}{'fo'} = g:TTrCodeAssistor_Libs{'for'}
+let g:TTrCodeAssistor_Templates{'c'}{'for'} = g:TTrCodeAssistor_Libs{'for'}
 let g:TTrCodeAssistor_Templates{'c'}{'wh'} = g:TTrCodeAssistor_Libs{'while'}
+let g:TTrCodeAssistor_Templates{'c'}{'while'} = g:TTrCodeAssistor_Libs{'while'}
 let g:TTrCodeAssistor_Templates{'c'}{'if'} = g:TTrCodeAssistor_Libs{'if'}
 let g:TTrCodeAssistor_Templates{'c'}{'sw'} = g:TTrCodeAssistor_Libs{'switch'}
+let g:TTrCodeAssistor_Templates{'c'}{'switch'} = g:TTrCodeAssistor_Libs{'switch'}
 let g:TTrCodeAssistor_Templates{'c'}{'ife'} = g:TTrCodeAssistor_Libs{'ife'}
 let g:TTrCodeAssistor_Templates{'c'}{'dn'} = g:TTrCodeAssistor_Libs{'dn'}
+let g:TTrCodeAssistor_Templates{'c'}{'main'} = g:TTrCodeAssistor_Libs{'main'}
 " C++ TTrCodeAssistor_Templatess
 let g:TTrCodeAssistor_Templates{'cpp'}{'c'} = g:TTrCodeAssistor_Libs{'c'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'d'} = g:TTrCodeAssistor_Libs{'d'}
@@ -351,11 +440,15 @@ let g:TTrCodeAssistor_Templates{'cpp'}{'i'} = g:TTrCodeAssistor_Libs{'i'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'is'} = g:TTrCodeAssistor_Libs{'is'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'df'} = g:TTrCodeAssistor_Libs{'df'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'fo'} = g:TTrCodeAssistor_Libs{'for'}
+let g:TTrCodeAssistor_Templates{'cpp'}{'for'} = g:TTrCodeAssistor_Libs{'for'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'wh'} = g:TTrCodeAssistor_Libs{'while'}
+let g:TTrCodeAssistor_Templates{'cpp'}{'while'} = g:TTrCodeAssistor_Libs{'while'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'if'} = g:TTrCodeAssistor_Libs{'if'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'sw'} = g:TTrCodeAssistor_Libs{'switch'}
+let g:TTrCodeAssistor_Templates{'cpp'}{'switch'} = g:TTrCodeAssistor_Libs{'switch'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'ife'} = g:TTrCodeAssistor_Libs{'ife'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'dn'} = g:TTrCodeAssistor_Libs{'dn'}
+let g:TTrCodeAssistor_Templates{'cpp'}{'main'} = g:TTrCodeAssistor_Libs{'main'}
 " *************************** }}}2
 
 " ====================== }}}1
