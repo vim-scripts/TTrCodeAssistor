@@ -1,10 +1,13 @@
 "        File: TTrCodeAssistor.vim
 "     Authors: winterTTr <winterTTr.vim@gmail.com>
+"  UpdateDate: 2007-01-17
 
-" Description: Easy and convenience is my purpose.So I wrote this script.
-"              Using even without having to read the manual. What you do
-"              is just remember some key with my help . Hope you can get 
-"              even just a little convenience from this .
+" Description: Help you to accelerate your inputing coding . ;-)
+"              What you need to do is just see the 'key' tables in the 
+"              Usage sectoin and then enjoy it by yourself.
+"              If you want the ability to complete the function prototype
+"              read the Usage more seriously :-)
+"              Hope you can get even just a little convenience from this .
 "              
 "
 "     Porpose: This script is mainly used to help you to accelerate your
@@ -15,8 +18,11 @@
 "                 <tab>     or Tab        --- move forward
 "                 <s-tab>   or Shift+tab  --- move backward
 "                 <c-cr> or ctrl+enter    --- expand the 'key' word
+"                 (                       --- Auto complete the function 
+"                                         prototype
+"                 )                       --- move or insert automantically
 "
-"              2 . <NEW> You can use the '(' in the insert mode to complete
+"              2 . You can use the '(' in the insert mode to complete
 "                  the function prototype according to your tagfile. And the 
 "                  '(' is intelligentized , it will decide how it action by
 "                  itself.
@@ -26,6 +32,13 @@
 "                  will not have his ability :-). Make sure !!!!
 "                      After that don't forget to tell the vim you tag files
 "                  by the command :set tags+=/your/tags/file
+"              3 . The key ')' will decide how to acton automatically.
+"                  Ex :
+"                      When you input:
+"                          function_name (  <cursor_pos> )
+"                      and input the ) , it will just move without input ')'
+"                      , so the result would be like this
+"                          function_name (   )<cursor_pos>
 "
 "              3 . 'key' word table
 "
@@ -83,6 +96,11 @@
 "                      according to the tag files , make sure that , you make the 
 "                      tag files via the correct command and the correct arguments.
 "                      See usage!!
+"                   -- Add the expand 'main'
+"               3.1
+"                   -- Add the ability for key ')' , make it more intelligent. It
+"                      will decide if you need to input ')' or just move to the next
+"                      ')' , and will warning you when the ')' is not match.
 "                   
 "                                                                    }}}1
 "
@@ -118,6 +136,7 @@ let g:TTrCodeAssistor_CursorPos = []  " Used to remeber the cursor's positon
 let g:TTrCodeAssistor_CallingMoveFirst = "\<c-r>=TTrCodeAssistor_MoveFirst()\<CR>"
 let g:TTrCodeAssistor_GotoBeginning = 0  " Used to decide whether the cursor should 
                                          " goto the beginning before move
+let s:ShowMode_UO = &showmode            " Remeber the user option for showmod
 
 " Define the type of action :
 "                1 . J   --- Jump ( default : just jump )
@@ -136,7 +155,12 @@ inoremap <silent> <s-tab>   <c-r>=TTrCodeAssistor_Action("b")<CR>
 snoremap <silent> <tab>   <left>a<c-r>=TTrCodeAssistor_Action("")<CR>
 snoremap <silent> <s-tab> <left>F`i<c-r>=TTrCodeAssistor_Action("b")<CR>
 inoremap <silent> ( <C-R>=TTrCodeAssistor_CompleteFuncPrototypeFromTags()<CR>
+inoremap <silent> ) <C-R>=TTrCodeAssistor_IntelligentRightBracket()<CR>
 "  *************}}}2
+
+"  *** autocmd  ***{{{2
+autocmd InsertLeave * :echohl WarningMsg |echo "" | echohl None |let &showmode=s:ShowMode_UO
+"  ****************}}}2
 
 " ***  Functions *** {{{2
 
@@ -287,7 +311,7 @@ function s:MarkAndReturn(content) "{{{3
 	return UserInputString
 endfunction "}}}3
 
-" Functions: TTrCodeAssistor_CompleteFuncFromTags() (return the string '' or '(' )
+" Functions: TTrCodeAssistor_CompleteFuncPrototyoeFromTags() (return the string '' or '(' )
 "     Usage: using tag files to complete the funtion declaration
 function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	"Remeber the position
@@ -298,7 +322,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	let RBracketNum = strlen( substitute( getline('.') , '[^)]','','g' ) )
 
 	if LBracketNum < RBracketNum
-		return '('
+		return "("
 	endif
 
 	" Get the function Name
@@ -306,7 +330,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	let FuncName = substitute(FuncName,'\m\s\+','','g')
 
 	if FuncName !~ '\m^\w\+$'
-		return "("
+		return '()'."\<Left>"
 	endif
 	
 	"Get the prototyoe from tags
@@ -314,7 +338,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	let FuncInfo = taglist(FuncName)
 
 	if FuncInfo == [] "Can't find one
-		return "("
+		return '()'."\<Left>"
 	endif
 
 	"Get complete infomations
@@ -324,8 +348,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 			if item.kind == 'p' || item.kind == 'f'
 				let DealedSig = substitute( item.signature , '(', '( '.g:TTrCodeAssistor_St,'')
 				let DealedSig = substitute( DealedSig , ',' , g:TTrCodeAssistor_En.' , '.g:TTrCodeAssistor_St , 'g')
-				let DealedSig = substitute( DealedSig , 
-									\')' , g:TTrCodeAssistor_En.' )'.g:TTrCodeAssistor_St.'E'.g:TTrCodeAssistor_En,'')
+				let DealedSig = substitute( DealedSig , ')' , g:TTrCodeAssistor_En.' )','')
 				call add( CompleteInfo , DealedSig )
 			endif
 		endif
@@ -341,6 +364,41 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	call complete(col('.'),CompleteInfo)
 
 	return ""
+endfunction "}}}3
+
+" Functions: TTrCodeAssistor_IntelligentRightBracket() (return the string '' or '(' )
+"     Usage: Let the right bracket have the ability to insert or just move itself
+function! TTrCodeAssistor_IntelligentRightBracket() "{{{3
+	"Calculate the number of the left/right bracket 
+	let LBracketNum = strlen( substitute( getline('.') , '[^(]','','g' ) )
+	let RBracketNum = strlen( substitute( getline('.') , '[^)]','','g' ) )
+
+	if RBracketNum == LBracketNum
+		let RightCharactor = substitute( getline('.')[col('.')-1:] , '\m^\s*)\zs.*\ze$','','')
+		let RightCharactor = substitute( RightCharactor , '\m\s*','','g')
+		if strlen( RightCharactor ) == 1 && RightCharactor == ')'
+			call search(')','c')
+			let CursorPos = getpos('.')
+			normal l
+			let NewCursorPos = getpos('.')
+			if NewCursorPos[2] == CursorPos[2]
+				call cursor( line('.'),strlen(getline('.'))+1 )
+			endif
+			return ''
+		else
+			setlocal noshowmode
+			echohl WarningMsg | echo 'Odd Right Bracket!' | echohl None
+			return ')'
+		endif
+	elseif  RBracketNum > LBracketNum
+		setlocal noshowmode
+		echohl WarningMsg | echo "Odd Right Bracket!" | echohl None
+		return ')'
+	else
+		return ')'
+	endif
+
+	return ''
 endfunction "}}}3
 
 " ****************** }}}2
