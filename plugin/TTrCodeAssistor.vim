@@ -32,6 +32,7 @@
 "                  will not have his ability :-). Make sure !!!!
 "                      After that don't forget to tell the vim you tag files
 "                  by the command :set tags+=/your/tags/file
+"
 "              3 . The key ')' will decide how to acton automatically.
 "                  Ex :
 "                      When you input:
@@ -39,8 +40,15 @@
 "                      and input the ) , it will just move without input ')'
 "                      , so the result would be like this
 "                          function_name (   )<cursor_pos>
+"              4 . Auto Start
+"                  You can let the plugin to start automatically.
+"                  put it into your vimrc:
+"                      let g:TTrCodeAssistor_AutoStart=1
 "
-"              3 . 'key' word table
+"              5 . All the 'key' word should be input under the <insert>
+"                  mode with <c-cr> RIGHT AFTER it to expand.
+"
+"              6 . 'key' word table
 "
 "       File type(&ft)  'key'shortcut/full/help remember    expand result
 "     --------------------------------------------------------------------
@@ -63,8 +71,6 @@
 "        any file         it/it/[i]nsert [t]ime           insert the time (now!)
 "     --------------------------------------------------------------------
                 
-"              4 . All the 'key' word should be input under the <insert>
-"                  mode with <c-cr> RIGHT AFTER it to expand.
 "                                                                    }}}1
 "
 "   Bug Report:                                                      {{{1
@@ -75,6 +81,9 @@
 "               2.0 When the vim option [selecton] is set to 'exlusive' ,
 "                   the selected area is not totally selected.So add some 
 "                   solution to this( thanks to Nikolay Golubev)        
+"               3.1 When the function name is start like a.b , the b can't
+"                   be recognized correctly , so i change the regular exp
+"                   to make it can find it out.
 "                                                                    }}}1
 " 
 "Modify Record:                                                      {{{1
@@ -101,7 +110,14 @@
 "                   -- Add the ability for key ')' , make it more intelligent. It
 "                      will decide if you need to input ')' or just move to the next
 "                      ')' , and will warning you when the ')' is not match.
-"                   
+"               3.2
+"                   -- Add the Menu for this plugin which let the user can                   
+"                      start or stop all the functions.
+"                   -- Add TTrCodeAssistor_AutoStart variable which can let
+"                      this plugin start automaticlly.
+"                   -- Fix the problem when the Function name is followed
+"                      by its owner ,such as , the member function of a class.
+"
 "                                                                    }}}1
 "
 "       Thanks:                                                      {{{1
@@ -127,40 +143,6 @@ let g:TTrCodeAssistor = 1
 "======================================================= }}}1
 
 " === TTrCodeAssistor === {{{1
-
-" *** Global option variable ***{{{2
-let g:TTrCodeAssistor_St='`|'         " Used to wrap the word for Assistor , like `|word|`
-let g:TTrCodeAssistor_En='|`'         " Please DON'T change it.
-let g:TTrCodeAssistor_UserInput = ""  " Remeber the user input string
-let g:TTrCodeAssistor_CursorPos = []  " Used to remeber the cursor's positon
-let g:TTrCodeAssistor_CallingMoveFirst = "\<c-r>=TTrCodeAssistor_MoveFirst()\<CR>"
-let g:TTrCodeAssistor_GotoBeginning = 0  " Used to decide whether the cursor should 
-                                         " goto the beginning before move
-let s:ShowMode_UO = &showmode            " Remeber the user option for showmod
-
-" Define the type of action :
-"                1 . J   --- Jump ( default : just jump )
-"                2 . RJ  --- Replace -> Jump
-"                3 . SJ  --- Store(user input) -> jump
-"                4 . UJ  --- Uppercase -> Jump
-let g:TTrCodeAssistor_ActionType = "J"
-"let g:TTrCodeAssistor_RemeberUserInput = 0
-"let g:TTrCodeAssistor_NeedModify = 0  "if the use input need to modify 
-" ******************************}}}2	
-
-"  *** maps  ***{{{2
-inoremap <silent> <c-cr>  <c-r>=TTrCodeAssistor_ExpandTemplates()<CR>
-inoremap <silent> <tab>   <c-r>=TTrCodeAssistor_Action("")<CR>
-inoremap <silent> <s-tab>   <c-r>=TTrCodeAssistor_Action("b")<CR>
-snoremap <silent> <tab>   <left>a<c-r>=TTrCodeAssistor_Action("")<CR>
-snoremap <silent> <s-tab> <left>F`i<c-r>=TTrCodeAssistor_Action("b")<CR>
-inoremap <silent> ( <C-R>=TTrCodeAssistor_CompleteFuncPrototypeFromTags()<CR>
-inoremap <silent> ) <C-R>=TTrCodeAssistor_IntelligentRightBracket()<CR>
-"  *************}}}2
-
-"  *** autocmd  ***{{{2
-autocmd InsertLeave * :echohl WarningMsg |echo "" | echohl None |let &showmode=s:ShowMode_UO
-"  ****************}}}2
 
 " ***  Functions *** {{{2
 
@@ -207,7 +189,6 @@ function! TTrCodeAssistor_Action(direction) "{{{3
 	let PositionContent = s:GetArea(a:direction)
 	return s:MarkAndReturn(PositionContent)
 endfunction "}}}3
-
 
 " Functions: s:GetUserInputBeforeMove( without return )
 "     Usage: Used to get the string about what user inputed in to TTrCodeAssistor_UserInput
@@ -326,10 +307,11 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	endif
 
 	" Get the function Name
-	let FuncName = substitute(getline('.')[:col('.')-2],'\m\zs.*\s\+\ze\w\+\s*$','','')
+	let FuncName = substitute(getline('.')[:col('.')-2],'\m\zs.\{-}\ze\w\+\s*$','','')
 	let FuncName = substitute(FuncName,'\m\s\+','','g')
 
 	if FuncName !~ '\m^\w\+$'
+		call confirm("Here")
 		return '()'."\<Left>"
 	endif
 	
@@ -348,7 +330,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 			if item.kind == 'p' || item.kind == 'f'
 				let DealedSig = substitute( item.signature , '(', '( '.g:TTrCodeAssistor_St,'')
 				let DealedSig = substitute( DealedSig , ',' , g:TTrCodeAssistor_En.' , '.g:TTrCodeAssistor_St , 'g')
-				let DealedSig = substitute( DealedSig , ')' , g:TTrCodeAssistor_En.' )','')
+				let DealedSig = substitute( DealedSig , ')' , ' '.g:TTrCodeAssistor_En.' )','')
 				call add( CompleteInfo , DealedSig )
 			endif
 		endif
@@ -401,7 +383,104 @@ function! TTrCodeAssistor_IntelligentRightBracket() "{{{3
 	return ''
 endfunction "}}}3
 
+" Functions: TTrCodeAssistor_Start()
+"     Usage: Used to start all the functions of this plugin
+function! TTrCodeAssistor_Start() "{{{3
+	if s:TTrCodeAssistor_isStart == 0
+		let s:TTrCodeAssistor_isStart = 1
+
+		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.\ Sto&p  :call TTrCodeAssistor_Stop()<CR>
+		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.*Star&t :call TTrCodeAssistor_Start()<CR>
+
+		silent! nunmenu &Plugin.&TTrCodeAssistor.\ Star&t
+		silent! nunmenu &Plugin.&TTrCodeAssistor.*Sto&p
+
+		" maps
+		inoremap <silent> <c-cr>  <c-r>=TTrCodeAssistor_ExpandTemplates()<CR>
+		inoremap <silent> <tab>   <c-r>=TTrCodeAssistor_Action("")<CR>
+		inoremap <silent> <s-tab>   <c-r>=TTrCodeAssistor_Action("b")<CR>
+		snoremap <silent> <tab>   <left>a<c-r>=TTrCodeAssistor_Action("")<CR>
+		snoremap <silent> <s-tab> <left>F`i<c-r>=TTrCodeAssistor_Action("b")<CR>
+		inoremap <silent> ( <C-R>=TTrCodeAssistor_CompleteFuncPrototypeFromTags()<CR>
+		inoremap <silent> ) <C-R>=TTrCodeAssistor_IntelligentRightBracket()<CR>
+
+		"autocmd
+		augroup TTrCodeAssistor
+			au!
+			autocmd InsertLeave * :echohl WarningMsg |echo "" | echohl None |let &showmode=s:ShowMode_UO
+		augroup END
+	endif
+endfunction "}}}3
+
+" Functions: TTrCodeAssistor_Stop()
+"     Usage: Used to stop all the functions of this plugin
+function! TTrCodeAssistor_Stop() "{{{3
+	if s:TTrCodeAssistor_isStart == 1
+		let s:TTrCodeAssistor_isStart = 0
+
+		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.\ Star&t :call TTrCodeAssistor_Start()<CR>
+		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.*Sto&p  :call TTrCodeAssistor_Stop()<CR>
+
+		silent! nunmenu &Plugin.&TTrCodeAssistor.*Star&t
+		silent! nunmenu &Plugin.&TTrCodeAssistor.\ Sto&p
+
+		" maps
+		iunmap <c-cr>
+		iunmap <tab>
+		iunmap <s-tab>
+		sunmap <tab>
+		sunmap <s-tab>
+		iunmap (
+		iunmap )
+
+		"autocmd
+		augroup TTrCodeAssistor
+			au!
+		augroup END
+	endif
+endfunction "}}}3
 " ****************** }}}2
+
+" *** Auto Start *** {{{2
+" The Flag : whether the Functions is started|0--STOP 1--START
+let s:TTrCodeAssistor_isStart = 0
+
+if !exists("g:TTrCodeAssistor_AutoStart")
+	let g:TTrCodeAssistor_AutoStart=0
+endif
+
+if g:TTrCodeAssistor_AutoStart == 1
+	call TTrCodeAssistor_Start()
+else
+	"make menu
+	silent! nnoremenu &Plugin.&TTrCodeAssistor.\ Star&t :call TTrCodeAssistor_Start()<CR>
+	silent! nnoremenu &Plugin.&TTrCodeAssistor.*Sto&p  :call TTrCodeAssistor_Stop()<CR>
+endif
+" ****************** }}}2
+
+" *** Global option variable ***{{{2
+let g:TTrCodeAssistor_St='`|'         " Used to wrap the word for Assistor , like `|word|`
+let g:TTrCodeAssistor_En='|`'         " Please DON'T change it.
+let g:TTrCodeAssistor_UserInput = ""  " Remeber the user input string
+let g:TTrCodeAssistor_CursorPos = []  " Used to remeber the cursor's positon
+let g:TTrCodeAssistor_CallingMoveFirst = "\<c-r>=TTrCodeAssistor_MoveFirst()\<CR>"
+let g:TTrCodeAssistor_GotoBeginning = 0  " Used to decide whether the cursor should 
+                                         " goto the beginning before move
+let s:ShowMode_UO = &showmode            " Remeber the user option for showmod
+
+" Define the type of action :
+"                1 . J   --- Jump ( default : just jump )
+"                2 . RJ  --- Replace -> Jump
+"                3 . SJ  --- Store(user input) -> jump
+"                4 . UJ  --- Uppercase -> Jump
+let g:TTrCodeAssistor_ActionType = "J"
+"let g:TTrCodeAssistor_RemeberUserInput = 0
+"let g:TTrCodeAssistor_NeedModify = 0  "if the use input need to modify 
+" ******************************}}}2		
+
+"  *** autocmd  ***{{{2
+autocmd InsertLeave * :echohl WarningMsg |echo "" | echohl None |let &showmode=s:ShowMode_UO
+"  ****************}}}2
 
 " *** TTrCodeAssistor libs *** {{{2
 let g:TTrCodeAssistor_Libs{'for'} = "for( ".
@@ -511,8 +590,6 @@ let g:TTrCodeAssistor_Templates{'cpp'}{'main'} = g:TTrCodeAssistor_Libs{'main'}
 
 " ====================== }}}1
 " ==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==
-
-
 
 
 " vim: set ft=vim ff=unix foldmethod=marker :
