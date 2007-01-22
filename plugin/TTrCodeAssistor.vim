@@ -311,7 +311,6 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	let FuncName = substitute(FuncName,'\m\s\+','','g')
 
 	if FuncName !~ '\m^\w\+$'
-		call confirm("Here")
 		return '()'."\<Left>"
 	endif
 	
