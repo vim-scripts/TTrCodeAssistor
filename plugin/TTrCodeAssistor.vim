@@ -1,6 +1,6 @@
 "        File: TTrCodeAssistor.vim
 "     Authors: winterTTr <winterTTr.vim@gmail.com>
-"  UpdateDate: 2007-01-17
+"  UpdateDate: 2007-01-26
 
 " Description: Help you to accelerate your inputing coding . ;-)
 "              What you need to do is just see the 'key' tables in the 
@@ -21,6 +21,9 @@
 "                 (                       --- Auto complete the function 
 "                                         prototype
 "                 )                       --- move or insert automantically
+"                 <BS> or <backspace>     --- it will auto delete the )
+"                                         while the ) is leaded by ( if
+"                                         you just input like (<cur_pos>)
 "
 "              2 . You can use the '(' in the insert mode to complete
 "                  the function prototype according to your tagfile. And the 
@@ -84,6 +87,8 @@
 "               3.1 When the function name is start like a.b , the b can't
 "                   be recognized correctly , so i change the regular exp
 "                   to make it can find it out.
+"               3.2 The tags can't match exactly .  The menu doesn't display
+"                   right .
 "                                                                    }}}1
 " 
 "Modify Record:                                                      {{{1
@@ -117,6 +122,12 @@
 "                      this plugin start automaticlly.
 "                   -- Fix the problem when the Function name is followed
 "                      by its owner ,such as , the member function of a class.
+"
+"               3.3
+"                   -- Let the menu to display rightly
+"                   -- Add the function for <bs> to make it delete the redundant
+"                      ) while the ) is close to (
+"                   -- Modify the code to match the function name exactly
 "
 "                                                                    }}}1
 "
@@ -292,7 +303,7 @@ function s:MarkAndReturn(content) "{{{3
 	return UserInputString
 endfunction "}}}3
 
-" Functions: TTrCodeAssistor_CompleteFuncPrototyoeFromTags() (return the string '' or '(' )
+" Functions: TTrCodeAssistor_CompleteFuncPrototyoeFromTags() (return the string '' or '()' )
 "     Usage: using tag files to complete the funtion declaration
 function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	"Remeber the position
@@ -316,7 +327,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	
 	"Get the prototyoe from tags
 	let FuncInfo = []
-	let FuncInfo = taglist(FuncName)
+	let FuncInfo = taglist('^'.FuncName.'$')
 
 	if FuncInfo == [] "Can't find one
 		return '()'."\<Left>"
@@ -336,7 +347,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	endfor
 
 	if len( CompleteInfo ) == 0
-		return "("
+		return "()"."\<Left>"
 	elseif len( CompleteInfo ) == 1
 		return CompleteInfo[0].g:TTrCodeAssistor_CallingMoveFirst
 	endif
@@ -347,7 +358,7 @@ function! TTrCodeAssistor_CompleteFuncPrototypeFromTags() "{{{3
 	return ""
 endfunction "}}}3
 
-" Functions: TTrCodeAssistor_IntelligentRightBracket() (return the string '' or '(' )
+" Functions: TTrCodeAssistor_IntelligentRightBracket() (return the string '' or ')' )
 "     Usage: Let the right bracket have the ability to insert or just move itself
 function! TTrCodeAssistor_IntelligentRightBracket() "{{{3
 	"Calculate the number of the left/right bracket 
@@ -382,14 +393,40 @@ function! TTrCodeAssistor_IntelligentRightBracket() "{{{3
 	return ''
 endfunction "}}}3
 
+" Functions: TTrCodeAssistor_IntelligentBackspace() (return the string '' or '<BS>' )
+"     Usage: Let the right bracket have the ability to insert or just move itself
+function! TTrCodeAssistor_IntelligentBackspace() "{{{3
+	let LeftChar = getline('.')[col('.')-2]
+	if LeftChar =='('
+		let RightChar = getline('.')[col('.')-1]
+		if RightChar == ')'
+			"Calculate the number of the left/right bracket 
+			let LBracketNum = strlen( substitute( getline('.') , '[^(]','','g' ) )
+			let RBracketNum = strlen( substitute( getline('.') , '[^)]','','g' ) )
+			if LBracketNum == RBracketNum
+				let CurPos = getpos('.')
+				normal x
+				let newCurPos = getpos('.')
+				if newCurPos[2] != CurPos[2]
+					call cursor(line('.'),strlen(getline('.'))+1 )
+				endif
+				return ''
+			else
+				return "\<BS>"
+			endif
+		endif
+	endif
+	return "\<BS>"
+endfunction "}}}3
+
 " Functions: TTrCodeAssistor_Start()
 "     Usage: Used to start all the functions of this plugin
 function! TTrCodeAssistor_Start() "{{{3
 	if s:TTrCodeAssistor_isStart == 0
 		let s:TTrCodeAssistor_isStart = 1
 
-		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.\ Sto&p  :call TTrCodeAssistor_Stop()<CR>
 		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.*Star&t :call TTrCodeAssistor_Start()<CR>
+		silent! nnoremenu <silent> &Plugin.&TTrCodeAssistor.\ Sto&p  :call TTrCodeAssistor_Stop()<CR>
 
 		silent! nunmenu &Plugin.&TTrCodeAssistor.\ Star&t
 		silent! nunmenu &Plugin.&TTrCodeAssistor.*Sto&p
@@ -402,6 +439,7 @@ function! TTrCodeAssistor_Start() "{{{3
 		snoremap <silent> <s-tab> <left>F`i<c-r>=TTrCodeAssistor_Action("b")<CR>
 		inoremap <silent> ( <C-R>=TTrCodeAssistor_CompleteFuncPrototypeFromTags()<CR>
 		inoremap <silent> ) <C-R>=TTrCodeAssistor_IntelligentRightBracket()<CR>
+		inoremap <silent> <BS> <C-R>=TTrCodeAssistor_IntelligentBackspace()<CR>
 
 		"autocmd
 		augroup TTrCodeAssistor
@@ -431,6 +469,7 @@ function! TTrCodeAssistor_Stop() "{{{3
 		sunmap <s-tab>
 		iunmap (
 		iunmap )
+		iunmap <BS>
 
 		"autocmd
 		augroup TTrCodeAssistor
