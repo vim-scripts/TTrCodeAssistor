@@ -73,6 +73,14 @@
 "                         main/main/[main] process        int main(...)...
 "        any file         it/it/[i]nsert [t]ime           insert the time (now!)
 "     --------------------------------------------------------------------
+"
+"              7 . move the cursor to the line and call TTrCodeAssistor_ToggleComment
+"                  to add or remove the comment.
+"                  You can also visual select a area and call the function.
+"                  To make a convienint way , you can give it to a map like:
+"                  nnoremap <F7> :call TTrCodeAssistor_ToggleComments()<CR>
+"                  vnoremap <F7> :call TTrCodeAssistor_ToggleComments()<CR>
+"                  
                 
 "                                                                    }}}1
 "
@@ -128,6 +136,9 @@
 "                   -- Add the function for <bs> to make it delete the redundant
 "                      ) while the ) is close to (
 "                   -- Modify the code to match the function name exactly
+"               3.4 
+"                   -- Add function TTrCodeAssistor_ToggleComment to add or
+"                      remove comments of the current line or v selected area.
 "
 "                                                                    }}}1
 "
@@ -477,6 +488,22 @@ function! TTrCodeAssistor_Stop() "{{{3
 		augroup END
 	endif
 endfunction "}}}3
+
+" Functions:TTrCodeAssistor_ToggleComments()
+"     Usage: Visual Select the area and call this function
+function! TTrCodeAssistor_ToggleComments() range "{{{3
+	if !exists( 'g:TTrCodeAssistor_Templates'. &ft . 'comment_char')
+		return
+	endif
+	let comment_charactors = g:TTrCodeAssistor_Templates{&ft}{'comment_char'}
+	let LineContent = getline(a:firstline)
+	let pos = match( LineContent , "^" . comment_charactors  )
+	if pos == 0
+		execute a:firstline . "," . a:lastline . 's/^' . comment_charactors .'//'
+	else
+		execute a:firstline . "," . a:lastline . 's/^/' . comment_charactors . '/'
+	endif
+endfunction "}}}3
 " ****************** }}}2
 
 " *** Auto Start *** {{{2
@@ -592,7 +619,7 @@ let g:TTrCodeAssistor_Libs{'main'} = "int main ( int argc , char ** argv )\<CR>{
 " *** ExpandTemplate Libs *** {{{2
 " common templates
 let g:TTrCodeAssistor_Templates{'_'}{'it'} = "\<c-r>=strftime(\"%Y-%m-%d %H:%M:%S\")\<cr>"
-" C TTrCodeAssistor_Templatess
+" C TTrCodeAssistor_Templates
 let g:TTrCodeAssistor_Templates{'c'}{'c'} = g:TTrCodeAssistor_Libs{'c'}
 let g:TTrCodeAssistor_Templates{'c'}{'d'} = g:TTrCodeAssistor_Libs{'d'}
 let g:TTrCodeAssistor_Templates{'c'}{'i'} = g:TTrCodeAssistor_Libs{'i'}
@@ -608,7 +635,8 @@ let g:TTrCodeAssistor_Templates{'c'}{'switch'} = g:TTrCodeAssistor_Libs{'switch'
 let g:TTrCodeAssistor_Templates{'c'}{'ife'} = g:TTrCodeAssistor_Libs{'ife'}
 let g:TTrCodeAssistor_Templates{'c'}{'dn'} = g:TTrCodeAssistor_Libs{'dn'}
 let g:TTrCodeAssistor_Templates{'c'}{'main'} = g:TTrCodeAssistor_Libs{'main'}
-" C++ TTrCodeAssistor_Templatess
+let g:TTrCodeAssistor_Templates{'c'}{'comment_char'} = '\/\/'
+" C++ TTrCodeAssistor_Templates
 let g:TTrCodeAssistor_Templates{'cpp'}{'c'} = g:TTrCodeAssistor_Libs{'c'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'d'} = g:TTrCodeAssistor_Libs{'d'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'i'} = g:TTrCodeAssistor_Libs{'i'}
@@ -624,6 +652,11 @@ let g:TTrCodeAssistor_Templates{'cpp'}{'switch'} = g:TTrCodeAssistor_Libs{'switc
 let g:TTrCodeAssistor_Templates{'cpp'}{'ife'} = g:TTrCodeAssistor_Libs{'ife'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'dn'} = g:TTrCodeAssistor_Libs{'dn'}
 let g:TTrCodeAssistor_Templates{'cpp'}{'main'} = g:TTrCodeAssistor_Libs{'main'}
+let g:TTrCodeAssistor_Templates{'cpp'}{'comment_char'} = '\/\/'
+" Vim TTrCodeAssistor_Templates
+let g:TTrCodeAssistor_Templates{'vim'}{'comment_char'} = '\"'
+" Sh TTrCodeAssistor_Templates
+let g:TTrCodeAssistor_Templates{'sh'}{'comment_char'} = '#'
 " *************************** }}}2
 
 " ====================== }}}1
